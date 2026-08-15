@@ -14,7 +14,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-RANDOM_STATE = 0
+RANDOM_STATE = 7
 
 def evaluate(model, X_test, y_test):
     y_pred = model.predict(X_test)
