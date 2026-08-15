@@ -47,4 +47,4 @@ def split_and_scale(X, y, scaler: Optional[str] = 'standard', test_size=0.25, ra
         X_train = sc.fit_transform(X_train)
         # Only transform the test feature data
         X_test = sc.transform(X_test)
-    return X_train, X_test, y_train, y_test
+    return X_train, X_test, y_train, y_test, sc
