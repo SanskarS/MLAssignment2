@@ -158,41 +158,45 @@ with tab_train:
     elif saved:
         st.info(f"No saved model for `{expected}` yet. Click **Train & Save Model** to train and save it.")
 
-with tab_predict:
+with (tab_predict):
     saved = list_saved_models()
     if not saved:
         st.info("No saved models found. Go to **Train & Save** and train a model first.")
     else:
         files = list(saved)
         expected = os.path.basename(model_path(identifier, nb_variant))
-        index = files.index(expected) if expected in files else 0
-        choice = st.selectbox("Saved model file", options=files, index=index, disabled=True)
-        payload, scaler, model = load_model(saved[choice])
+        if expected in files:
+            index = files.index(expected)
+            choice = st.selectbox("Saved model file", options=files, index=index, disabled=True)
+            payload, scaler, model = load_model(saved[choice])
 
-        if payload.get('sklearn_version') != sklearn.__version__:
-            st.warning(
-                f"Model was saved with sklearn {payload['sklearn_version']} "
-                f"but you are running {sklearn.__version__}. Predictions may be affected."
-            )
-        st.caption(
-            f"Saved: {payload['saved_at']} | model: {payload['model_id']}"
-            f"{' (' + payload['variant'] + ')' if payload.get('variant') else ''}"
-        )
-
-        display_saved_results(payload)
-
-        uploaded = st.file_uploader("Upload test data CSV", type='csv')
-        if uploaded is not None:
-            df = pd.read_csv(uploaded)
-            missing = [c for c in payload['feature_columns'] if c not in df.columns]
-            if missing:
-                st.error(f"Missing required columns: {missing}")
-            else:
-                out = build_predictions(df, payload, scaler, model)
-                st.dataframe(out)
-                st.download_button(
-                    label="Download predictions",
-                    data=out.to_csv(index=False).encode('utf-8'),
-                    file_name='predictions.csv',
-                    mime='text/csv',
+            if payload.get('sklearn_version') != sklearn.__version__:
+                st.warning(
+                    f"Model was saved with sklearn {payload['sklearn_version']} "
+                    f"but you are running {sklearn.__version__}. Predictions may be affected."
                 )
+            st.caption(
+                f"Saved: {payload['saved_at']} | model: {payload['model_id']}"
+                f"{' (' + payload['variant'] + ')' if payload.get('variant') else ''}"
+            )
+
+            display_saved_results(payload)
+
+            uploaded = st.file_uploader("Upload test data CSV", type='csv')
+            if uploaded is not None:
+                df = pd.read_csv(uploaded)
+                missing = [c for c in payload['feature_columns'] if c not in df.columns]
+                if missing:
+                    st.error(f"Missing required columns: {missing}")
+                else:
+                    out = build_predictions(df, payload, scaler, model)
+                    st.dataframe(out)
+                    st.download_button(
+                        label="Download predictions",
+                        data=out.to_csv(index=False).encode('utf-8'),
+                        file_name='predictions.csv',
+                        mime='text/csv',
+                    )
+        else:
+            st.info("This model not trained yet. Train & Save this model first.")
+
