@@ -1,13 +1,15 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import streamlit as st
 from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn.preprocessing import LabelEncoder
 from ucimlrepo import fetch_ucirepo
 
 from models import RUNNERS
 
 st.title('ML Assignment 2')
 
-st.write('Classifier Models')
+st.write('Classifier Models — Dry Bean (UCI id=602)')
 
 models = {
     '1. Logistic Regression': 'logistic_regression',
@@ -23,8 +25,11 @@ identifier = models[option]
 
 @st.cache_data
 def load_dataset():
-    fetched_dataset = fetch_ucirepo(id=936)
-    return fetched_dataset.data.features, fetched_dataset.data.targets
+    fetched_dataset = fetch_ucirepo(id=602)
+    X = fetched_dataset.data.features
+    y = fetched_dataset.data.targets
+    y = LabelEncoder().fit_transform(np.ravel(y))
+    return X, y
 
 
 X, y = load_dataset()
@@ -32,7 +37,17 @@ X, y = load_dataset()
 
 def run_selected(identifier, **params):
     result = RUNNERS[identifier](X, y, **params)
-    st.metric(label="Test Accuracy", value=f"{result['accuracy']:.4f}")
+    metrics = {
+        'Accuracy': result['accuracy'],
+        'AUC Score': result['auc'],
+        'Precision': result['precision'],
+        'Recall': result['recall'],
+        'F1 Score': result['f1'],
+        'MCC Score': result['mcc'],
+    }
+    cols = st.columns(3)
+    for i, (label, value) in enumerate(metrics.items()):
+        cols[i % 3].metric(label=label, value=f"{value:.4f}")
     st.code(result['report'])
     disp = ConfusionMatrixDisplay(confusion_matrix=result['confusion'])
     fig, ax = plt.subplots(figsize=(6, 5))
