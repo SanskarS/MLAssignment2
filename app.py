@@ -68,6 +68,40 @@ def display_results(result):
     plt.close(fig)
 
 
+def display_saved_results(payload):
+    st.subheader("Saved Evaluation Metrics")
+    metrics = payload.get('metrics', {})
+    metric_labels = {
+        'accuracy': 'Accuracy',
+        'auc': 'AUC Score',
+        'precision': 'Precision',
+        'recall': 'Recall',
+        'f1': 'F1 Score',
+        'mcc': 'MCC Score',
+    }
+    cols = st.columns(3)
+    for i, (key, label) in enumerate(metric_labels.items()):
+        cols[i % 3].metric(label=label, value=f"{metrics.get(key, 0):.4f}")
+
+    st.subheader("Classification Report")
+    report = payload.get('report')
+    if report:
+        st.code(report)
+    else:
+        st.info("Saved before the report was persisted — retrain the model to include it.")
+
+    st.subheader("Confusion Matrix")
+    confusion = payload.get('confusion')
+    if confusion:
+        disp = ConfusionMatrixDisplay(confusion_matrix=np.array(confusion))
+        fig, ax = plt.subplots(figsize=(6, 5))
+        disp.plot(ax=ax, cmap='Blues')
+        st.pyplot(fig)
+        plt.close(fig)
+    else:
+        st.info("Saved before the confusion matrix was persisted — retrain the model to include it.")
+
+
 def build_predictions(df, payload, scaler, model):
     feats = payload['feature_columns']
     X_new = df[feats]
@@ -75,7 +109,10 @@ def build_predictions(df, payload, scaler, model):
         X_new = scaler.transform(X_new)
     pred = model.predict(X_new)
     out = df.copy()
-    out['Prediction'] = [payload['classes'][int(p)] for p in pred]
+    values = [payload['classes'][int(p)] for p in pred]
+    # out['Prediction']
+    out.insert(1, 'Prediction', values)
+    out = out.iloc[:, :2]
     return out
 
 
@@ -95,6 +132,8 @@ with tab_train:
                 'model_id': identifier,
                 'variant': nb_variant,
                 'metrics': {k: result[k] for k in ('accuracy', 'auc', 'precision', 'recall', 'f1', 'mcc')},
+                'report': result['report'],
+                'confusion': result['confusion'].tolist(),
                 'classes': CLASSES,
                 'feature_columns': list(X.columns),
             },
@@ -108,6 +147,16 @@ with tab_train:
             st.write(f"- `{name}`")
     else:
         st.info("No saved models yet. Train & Save a model first.")
+
+    expected = f"{identifier}{'_' + nb_variant if nb_variant else ''}.json"
+    if expected in saved:
+        payload, _, _ = load_model(saved[expected])
+        st.caption(
+            f"Showing saved evaluation for `{expected}` — click **Train & Save Model** to retrain and update."
+        )
+        display_saved_results(payload)
+    elif saved:
+        st.info(f"No saved model for `{expected}` yet. Click **Train & Save Model** to train and save it.")
 
 with tab_predict:
     saved = list_saved_models()
@@ -130,6 +179,8 @@ with tab_predict:
             f"{' (' + payload['variant'] + ')' if payload.get('variant') else ''}"
         )
 
+        display_saved_results(payload)
+
         uploaded = st.file_uploader("Upload test data CSV", type='csv')
         if uploaded is not None:
             df = pd.read_csv(uploaded)
@@ -139,3 +190,9 @@ with tab_predict:
             else:
                 out = build_predictions(df, payload, scaler, model)
                 st.dataframe(out)
+                st.download_button(
+                    label="Download predictions",
+                    data=out.to_csv(index=False).encode('utf-8'),
+                    file_name='predictions.csv',
+                    mime='text/csv',
+                )
