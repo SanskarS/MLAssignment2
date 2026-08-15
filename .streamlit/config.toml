@@ -1,0 +1,2 @@
+[server]
+maxUploadSize = 50 # Setting upload file size limit to 50 MBs
